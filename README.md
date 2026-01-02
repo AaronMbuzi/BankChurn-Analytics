@@ -39,3 +39,7 @@ Model Training → Trains logistic regression on the data
 Live Predictions → Users can test new customer data
 
 Performance Analysis → Visualizes how well the model performs
+
+### Want to try it out ?
+
+`https://bankchurnanalytics.streamlit.app/`
