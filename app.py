@@ -1,461 +1,339 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import io
 import matplotlib.pyplot as plt
-import seaborn as sns
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score, roc_curve
+import io
 import warnings
 warnings.filterwarnings('ignore')
 
 # Set page config
 st.set_page_config(
-    page_title="Bank Churn Prediction",
+    page_title="Bank Churn Predictor",
     page_icon="🏦",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
-# Custom CSS for better styling
-st.markdown("""
-<style>
-    .main-header {
-        font-size: 2.5rem;
-        color: #1E3A8A;
-        text-align: center;
-        margin-bottom: 2rem;
-    }
-    .sub-header {
-        font-size: 1.5rem;
-        color: #374151;
-        margin-top: 2rem;
-        margin-bottom: 1rem;
-    }
-    .metric-card {
-        background-color: #F3F4F6;
-        padding: 1.5rem;
-        border-radius: 10px;
-        border-left: 5px solid #3B82F6;
-    }
-    .success-text {
-        color: #10B981;
-        font-weight: bold;
-    }
-    .danger-text {
-        color: #EF4444;
-        font-weight: bold;
-    }
-    .stButton button {
-        background-color: #3B82F6;
-        color: white;
-        font-weight: bold;
-        border-radius: 5px;
-        padding: 0.5rem 2rem;
-    }
-</style>
-""", unsafe_allow_html=True)
-
 # App title
-st.markdown('<h1 class="main-header">🏦 Bank Customer Churn Prediction</h1>', unsafe_allow_html=True)
-st.markdown("""
-This application uses **Logistic Regression** to predict whether a bank customer will churn (leave the bank).
-Upload your data or use the sample data to train the model and make predictions.
-""")
+st.title("🏦 Bank Customer Churn Prediction")
+st.markdown("Using Logistic Regression with real Excel data")
 
-# Sidebar for navigation
-st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to", ["📊 Model Training", "🔮 Make Predictions", "📈 Model Performance", "📋 About"])
-
-# Function to load and preprocess data (matches your code)
-def load_and_preprocess_data(uploaded_file=None):
-    if uploaded_file is not None:
-        try:
-            # Try reading the uploaded file
-            if uploaded_file.name.endswith('.xlsx'):
-                df = pd.read_excel(uploaded_file)
-            elif uploaded_file.name.endswith('.csv'):
-                df = pd.read_csv(uploaded_file)
-            else:
-                st.error("Please upload an Excel (.xlsx) or CSV (.csv) file")
-                return None, None, None, None, None
-        except Exception as e:
-            st.error(f"Error reading file: {str(e)}")
-            return None, None, None, None, None
-    else:
-        # Use the sample data path from your code
-        try:
-            df = pd.read_excel('Churn_Modelling.xlsx', sheet_name='Churn_Modelling', header=0)
-        except:
-            st.warning("Sample file not found. Please upload your data file.")
-            return None, None, None, None, None
-    
-    # Strip column names
-    df.columns = df.columns.str.strip()
-    
-    # Prepare features and target
-    if 'Exited' not in df.columns:
-        st.error("Column 'Exited' not found in the dataset. This column should contain the target variable.")
-        return None, None, None, None, None
-    
-    X = df.drop(['Exited', 'RowNumber', 'CustomerId', 'Surname'], axis=1, errors='ignore')
-    y = df['Exited']
-    
-    # Convert boolean columns to int
-    bool_cols = ['HasCrCard', 'IsActiveMember', 'IsHighValueCustomer']
-    for col in bool_cols:
-        if col in X.columns:
-            X[col] = X[col].astype(int)
-    
-    # One-Hot Encode AgeGroup
-    categorical_cols = ['AgeGroup']
-    for col in categorical_cols:
-        if col in X.columns:
-            X = pd.get_dummies(X, columns=[col], drop_first=True)
-    
-    return df, X, y
-
-# Function to train model
-def train_model(X_train, X_test, y_train, y_test):
-    # Scale numeric features
-    num_cols = ['CreditScore', 'Age', 'Tenure', 'Balance', 'NumOfProducts', 
-                'EstimatedSalary', 'BalanceSalaryRatio']
-    
-    # Filter to columns that exist
-    num_cols = [col for col in num_cols if col in X_train.columns]
-    
-    scaler = StandardScaler()
-    X_train_scaled = X_train.copy()
-    X_test_scaled = X_test.copy()
-    
-    X_train_scaled[num_cols] = scaler.fit_transform(X_train[num_cols])
-    X_test_scaled[num_cols] = scaler.transform(X_test[num_cols])
-    
-    # Train Logistic Regression
-    lr = LogisticRegression(random_state=42, max_iter=1000)
-    lr.fit(X_train_scaled, y_train)
-    
-    # Make predictions
-    y_pred = lr.predict(X_test_scaled)
-    y_prob = lr.predict_proba(X_test_scaled)[:,1]
-    
-    return lr, scaler, y_pred, y_prob, X_train_scaled.columns
-
-# Page 1: Model Training
-if page == "📊 Model Training":
-    st.markdown('<h2 class="sub-header">📊 Upload & Train Model</h2>', unsafe_allow_html=True)
-    
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        uploaded_file = st.file_uploader("Upload your Churn_Modelling.xlsx file", type=['xlsx', 'csv'])
-    
-    with col2:
-        test_size = st.slider("Test Size Ratio", 0.1, 0.4, 0.2, 0.05)
-    
-    if uploaded_file is not None or st.button("Use Sample Data Structure"):
-        with st.spinner("Loading and preprocessing data..."):
-            df, X, y = load_and_preprocess_data(uploaded_file)
+# Function to load data - WITH ERROR HANDLING
+def load_data():
+    """Load data from Excel file in the same directory"""
+    try:
+        # Try to load the Excel file
+        df = pd.read_excel('Churn_Modelling.xlsx', sheet_name='Churn_Modelling')
+        st.success("✅ Excel file loaded successfully!")
+        return df
+    except FileNotFoundError:
+        st.error("❌ Excel file not found in the current directory.")
+        st.info("""
+        **Troubleshooting:**
+        1. Make sure `Churn_Modelling.xlsx` is in the same folder as `app.py`
+        2. On Streamlit Cloud, files must be in the GitHub repository
+        3. Check the file name spelling (case-sensitive)
+        """)
         
-        if df is not None:
-            # Show dataset info
-            st.subheader("Dataset Overview")
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.metric("Total Samples", len(df))
-            with col2:
-                st.metric("Features", X.shape[1])
-            with col3:
-                churn_rate = (y.sum() / len(y)) * 100
-                st.metric("Churn Rate", f"{churn_rate:.1f}%")
-            
-            # Show data preview
-            with st.expander("View Data Preview", expanded=True):
-                tab1, tab2 = st.tabs(["First 10 Rows", "Data Info"])
-                with tab1:
-                    st.dataframe(df.head(10), use_container_width=True)
-                with tab2:
-                    buffer = io.StringIO()
-                    df.info(buf=buffer)
-                    st.text(buffer.getvalue())
-            
-            # Train-test split
-            X_train, X_test, y_train, y_test = train_test_split(
-                X, y, test_size=test_size, random_state=42, stratify=y
-            )
-            
-            # Train model button
-            if st.button("🚀 Train Logistic Regression Model", use_container_width=True):
-                with st.spinner("Training model..."):
-                    lr, scaler, y_pred, y_prob, feature_names = train_model(X_train, X_test, y_train, y_test)
-                    
-                    # Calculate metrics
-                    roc_score = roc_auc_score(y_test, y_prob)
-                    cm = confusion_matrix(y_test, y_pred)
-                    report = classification_report(y_test, y_pred, output_dict=True)
-                    
-                    # Store in session state
-                    st.session_state['model'] = lr
-                    st.session_state['scaler'] = scaler
-                    st.session_state['feature_names'] = feature_names
-                    st.session_state['X_train'] = X_train
-                    st.session_state['X_test'] = X_test
-                    st.session_state['y_test'] = y_test
-                    st.session_state['y_pred'] = y_pred
-                    st.session_state['y_prob'] = y_prob
-                    st.session_state['roc_score'] = roc_score
-                    st.session_state['cm'] = cm
-                    st.session_state['report'] = report
-                    
-                    # Success message
-                    st.success("✅ Model trained successfully!")
-                    
-                    # Display metrics
-                    st.subheader("Model Performance")
-                    col1, col2, col3 = st.columns(3)
-                    
-                    with col1:
-                        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                        st.metric("ROC-AUC Score", f"{roc_score:.3f}")
-                        st.markdown('</div>', unsafe_allow_html=True)
-                    
-                    with col2:
-                        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                        accuracy = report['accuracy']
-                        st.metric("Accuracy", f"{accuracy:.3f}")
-                        st.markdown('</div>', unsafe_allow_html=True)
-                    
-                    with col3:
-                        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                        precision = report['1']['precision']
-                        st.metric("Precision (Churn)", f"{precision:.3f}")
-                        st.markdown('</div>', unsafe_allow_html=True)
+        # Generate sample data as fallback
+        st.warning("⚠️ Using synthetic data for demo purposes")
+        return generate_sample_data()
+    except Exception as e:
+        st.error(f"❌ Error loading file: {str(e)}")
+        return generate_sample_data()
 
-# Page 2: Make Predictions
-elif page == "🔮 Make Predictions":
-    st.markdown('<h2 class="sub-header">🔮 Predict Customer Churn</h2>', unsafe_allow_html=True)
+def generate_sample_data():
+    """Generate sample data if Excel file is not available"""
+    np.random.seed(42)
+    n_samples = 10000
     
-    if 'model' not in st.session_state:
-        st.warning("Please train the model first on the 'Model Training' page.")
-    else:
-        st.info("Enter customer details to predict churn probability")
+    data = {
+        'RowNumber': range(1, n_samples + 1),
+        'CustomerId': np.random.randint(100000, 999999, n_samples),
+        'Surname': np.random.choice(['Smith', 'Johnson', 'Williams'], n_samples),
+        'CreditScore': np.random.normal(650, 100, n_samples).astype(int),
+        'Age': np.random.normal(37, 10, n_samples).astype(int),
+        'Tenure': np.random.randint(0, 11, n_samples),
+        'Balance': np.random.exponential(50000, n_samples),
+        'NumOfProducts': np.random.choice([1, 2, 3, 4], n_samples),
+        'HasCrCard': np.random.choice([0, 1], n_samples),
+        'IsActiveMember': np.random.choice([0, 1], n_samples),
+        'EstimatedSalary': np.random.uniform(10000, 200000, n_samples),
+        'Exited': np.random.choice([0, 1], n_samples, p=[0.8, 0.2]),
+    }
+    
+    df = pd.DataFrame(data)
+    df['AgeGroup'] = pd.cut(df['Age'], bins=[18, 30, 40, 50, 60, 80],
+                           labels=['18-30', '31-40', '41-50', '51-60', '61-80'])
+    df['BalanceSalaryRatio'] = df['Balance'] / (df['EstimatedSalary'] + 1)
+    df['IsHighValueCustomer'] = (df['Balance'] > df['Balance'].quantile(0.75)).astype(int)
+    
+    return df
+
+# Load data
+st.header("📊 Data Loading")
+with st.spinner("Loading data from Excel file..."):
+    df = load_data()
+
+# Show data info
+st.subheader("Dataset Overview")
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.metric("Total Customers", len(df))
+with col2:
+    st.metric("Features", df.shape[1] - 4)  # Excluding target and ID columns
+with col3:
+    churn_rate = df['Exited'].mean() * 100
+    st.metric("Churn Rate", f"{churn_rate:.1f}%")
+
+# Show data preview
+with st.expander("View Data Preview", expanded=True):
+    tab1, tab2 = st.tabs(["First 10 Rows", "Data Info"])
+    with tab1:
+        st.dataframe(df.head(10), use_container_width=True)
+    with tab2:
+        buffer = io.StringIO()
+        df.info(buf=buffer)
+        st.text(buffer.getvalue())
+
+# Data Preparation
+st.header("🔧 Data Preparation")
+
+# Prepare features
+X = df.drop(['Exited', 'RowNumber', 'CustomerId', 'Surname'], axis=1, errors='ignore')
+
+# Convert boolean columns
+bool_cols = ['HasCrCard', 'IsActiveMember', 'IsHighValueCustomer']
+for col in bool_cols:
+    if col in X.columns:
+        X[col] = X[col].astype(int)
+
+# One-Hot Encode AgeGroup
+if 'AgeGroup' in X.columns:
+    X = pd.get_dummies(X, columns=['AgeGroup'], drop_first=True)
+
+y = df['Exited']
+
+# Show features
+st.write(f"**Features prepared:** {X.shape[1]} columns")
+st.dataframe(X.head(), use_container_width=True)
+
+# Model Training
+st.header("🤖 Model Training")
+
+test_size = st.slider("Test Size Ratio", 0.1, 0.4, 0.2, 0.05)
+
+if st.button("🚀 Train Logistic Regression Model", type="primary"):
+    with st.spinner("Training model..."):
+        # Split data
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=test_size, random_state=42, stratify=y
+        )
         
-        # Create input form
+        # Scale numeric features
+        num_cols = ['CreditScore', 'Age', 'Tenure', 'Balance', 'NumOfProducts', 
+                   'EstimatedSalary', 'BalanceSalaryRatio']
+        num_cols = [col for col in num_cols if col in X_train.columns]
+        
+        scaler = StandardScaler()
+        X_train_scaled = X_train.copy()
+        X_test_scaled = X_test.copy()
+        
+        X_train_scaled[num_cols] = scaler.fit_transform(X_train[num_cols])
+        X_test_scaled[num_cols] = scaler.transform(X_test[num_cols])
+        
+        # Train model
+        model = LogisticRegression(random_state=42, max_iter=1000)
+        model.fit(X_train_scaled, y_train)
+        
+        # Make predictions
+        y_pred = model.predict(X_test_scaled)
+        y_prob = model.predict_proba(X_test_scaled)[:, 1]
+        
+        # Calculate metrics
+        accuracy = model.score(X_test_scaled, y_test)
+        roc_auc = roc_auc_score(y_test, y_prob)
+        
+        # Store in session state
+        st.session_state['model'] = model
+        st.session_state['scaler'] = scaler
+        st.session_state['feature_names'] = X_train.columns.tolist()
+        st.session_state['trained'] = True
+        st.session_state['accuracy'] = accuracy
+        st.session_state['roc_auc'] = roc_auc
+        st.session_state['y_test'] = y_test
+        st.session_state['y_prob'] = y_prob
+        
+        # Show results
+        st.success(f"✅ Model trained successfully!")
+        
+        # Display metrics
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Accuracy", f"{accuracy:.3f}")
+        with col2:
+            st.metric("ROC-AUC Score", f"{roc_auc:.3f}")
+        with col3:
+            st.metric("Churn Prediction", f"{(y_pred == 1).mean():.1%}")
+        
+        # Feature importance
+        st.subheader("Feature Importance")
+        coef_df = pd.DataFrame({
+            'Feature': X_train.columns,
+            'Coefficient': model.coef_[0]
+        }).sort_values('Coefficient', key=abs, ascending=False)
+        
+        st.dataframe(coef_df, use_container_width=True)
+        
+        # ROC Curve
+        st.subheader("ROC Curve")
+        fpr, tpr, _ = roc_curve(y_test, y_prob)
+        
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.plot(fpr, tpr, label=f'ROC Curve (AUC = {roc_auc:.3f})', linewidth=2)
+        ax.plot([0, 1], [0, 1], 'k--', alpha=0.5)
+        ax.set_xlabel('False Positive Rate')
+        ax.set_ylabel('True Positive Rate')
+        ax.set_title('Receiver Operating Characteristic')
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+        
+        st.pyplot(fig)
+
+# Prediction Section
+st.header("🔮 Make Predictions")
+
+if 'trained' in st.session_state:
+    st.info("Enter customer details to predict churn")
+    
+    with st.form("prediction_form"):
         col1, col2 = st.columns(2)
         
         with col1:
-            CreditScore = st.number_input("Credit Score", min_value=300, max_value=850, value=650)
-            Age = st.number_input("Age", min_value=18, max_value=100, value=40)
-            Tenure = st.number_input("Tenure (years)", min_value=0, max_value=10, value=5)
-            Balance = st.number_input("Balance", min_value=0.0, max_value=300000.0, value=50000.0)
+            credit_score = st.number_input("Credit Score", 300, 850, 650)
+            age = st.number_input("Age", 18, 80, 40)
+            tenure = st.number_input("Tenure (years)", 0, 10, 5)
+            balance = st.number_input("Balance", 0.0, 250000.0, 50000.0, 1000.0)
         
         with col2:
-            NumOfProducts = st.number_input("Number of Products", min_value=1, max_value=4, value=2)
-            HasCrCard = st.selectbox("Has Credit Card", [1, 0])
-            IsActiveMember = st.selectbox("Is Active Member", [1, 0])
-            EstimatedSalary = st.number_input("Estimated Salary", min_value=0.0, max_value=300000.0, value=50000.0)
+            num_products = st.number_input("Number of Products", 1, 4, 2)
+            has_credit_card = st.selectbox("Has Credit Card", [1, 0])
+            is_active = st.selectbox("Is Active Member", [1, 0])
+            salary = st.number_input("Estimated Salary", 10000.0, 200000.0, 60000.0, 1000.0)
         
-        BalanceSalaryRatio = st.number_input("Balance/Salary Ratio", 
-                                            value=Balance/EstimatedSalary if EstimatedSalary > 0 else 0,
-                                            format="%.3f")
+        balance_ratio = balance / salary if salary > 0 else 0
         
-        # Add categorical inputs if they exist in the trained model
-        AgeGroup_dummies = []
-        if 'feature_names' in st.session_state:
-            for feature in st.session_state['feature_names']:
-                if 'AgeGroup' in feature:
-                    AgeGroup_dummies.append(feature)
+        submitted = st.form_submit_button("Predict Churn")
+    
+    if submitted:
+        # Create input DataFrame
+        input_data = {}
         
-        if AgeGroup_dummies:
-            AgeGroup = st.selectbox("Age Group", AgeGroup_dummies)
-        
-        if st.button("Predict Churn", use_container_width=True):
-            # Create input array
-            input_data = {
-                'CreditScore': CreditScore,
-                'Age': Age,
-                'Tenure': Tenure,
-                'Balance': Balance,
-                'NumOfProducts': NumOfProducts,
-                'HasCrCard': HasCrCard,
-                'IsActiveMember': IsActiveMember,
-                'EstimatedSalary': EstimatedSalary,
-                'BalanceSalaryRatio': BalanceSalaryRatio
-            }
-            
-            # Add AgeGroup dummies
-            for dummy in AgeGroup_dummies:
-                input_data[dummy] = 1 if dummy == AgeGroup else 0
-            
-            # Convert to DataFrame
-            input_df = pd.DataFrame([input_data])
-            
-            # Ensure columns match training data
-            for col in st.session_state['feature_names']:
-                if col not in input_df.columns:
-                    input_df[col] = 0
-            
-            # Reorder columns
-            input_df = input_df[st.session_state['feature_names']]
-            
-            # Scale features
-            input_scaled = input_df.copy()
-            num_cols = ['CreditScore', 'Age', 'Tenure', 'Balance', 'NumOfProducts', 
-                       'EstimatedSalary', 'BalanceSalaryRatio']
-            num_cols = [col for col in num_cols if col in input_df.columns]
-            input_scaled[num_cols] = st.session_state['scaler'].transform(input_df[num_cols])
-            
-            # Make prediction
-            model = st.session_state['model']
-            prob = model.predict_proba(input_scaled)[0][1]
-            prediction = model.predict(input_scaled)[0]
-            
-            # Display results
-            st.subheader("Prediction Results")
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                st.metric("Churn Probability", f"{prob:.1%}")
-                st.markdown('</div>', unsafe_allow_html=True)
-            
-            with col2:
-                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                if prediction == 1:
-                    st.markdown('<p class="danger-text">Prediction: WILL CHURN 🚨</p>', unsafe_allow_html=True)
-                    st.write("Customer is likely to leave the bank.")
+        # Add all features from training
+        for feature in st.session_state['feature_names']:
+            if feature == 'CreditScore':
+                input_data[feature] = credit_score
+            elif feature == 'Age':
+                input_data[feature] = age
+            elif feature == 'Tenure':
+                input_data[feature] = tenure
+            elif feature == 'Balance':
+                input_data[feature] = balance
+            elif feature == 'NumOfProducts':
+                input_data[feature] = num_products
+            elif feature == 'HasCrCard':
+                input_data[feature] = has_credit_card
+            elif feature == 'IsActiveMember':
+                input_data[feature] = is_active
+            elif feature == 'EstimatedSalary':
+                input_data[feature] = salary
+            elif feature == 'BalanceSalaryRatio':
+                input_data[feature] = balance_ratio
+            elif 'AgeGroup' in feature:
+                # Set AgeGroup based on age
+                age_group = None
+                if 18 <= age <= 30:
+                    age_group = 'AgeGroup_31-40' if '31-40' in feature else ('AgeGroup_41-50' if '41-50' in feature else ('AgeGroup_51-60' if '51-60' in feature else 'AgeGroup_61-80'))
+                elif 31 <= age <= 40:
+                    age_group = 'AgeGroup_31-40'
+                elif 41 <= age <= 50:
+                    age_group = 'AgeGroup_41-50'
+                elif 51 <= age <= 60:
+                    age_group = 'AgeGroup_51-60'
                 else:
-                    st.markdown('<p class="success-text">Prediction: WILL STAY ✅</p>', unsafe_allow_html=True)
-                    st.write("Customer is likely to stay with the bank.")
-                st.markdown('</div>', unsafe_allow_html=True)
-
-# Page 3: Model Performance
-elif page == "📈 Model Performance":
-    st.markdown('<h2 class="sub-header">📈 Model Evaluation</h2>', unsafe_allow_html=True)
-    
-    if 'model' not in st.session_state:
-        st.warning("Please train the model first on the 'Model Training' page.")
-    else:
-        # Create tabs for different visualizations
-        tab1, tab2, tab3 = st.tabs(["📊 ROC Curve", "📈 Confusion Matrix", "📋 Classification Report"])
+                    age_group = 'AgeGroup_61-80'
+                
+                input_data[feature] = 1 if feature == age_group else 0
+            elif feature == 'IsHighValueCustomer':
+                input_data[feature] = 1 if balance > 100000 else 0
+            else:
+                input_data[feature] = 0  # Default value for other features
         
-        with tab1:
-            st.subheader("ROC Curve")
-            
-            # Calculate ROC curve
-            fpr, tpr, thresholds = roc_curve(st.session_state['y_test'], st.session_state['y_prob'])
-            
-            # Plot
-            fig, ax = plt.subplots(figsize=(8, 6))
-            ax.plot(fpr, tpr, label=f'Logistic Regression (AUC = {st.session_state["roc_score"]:.3f})', linewidth=2)
-            ax.plot([0, 1], [0, 1], 'k--', alpha=0.5)
-            ax.fill_between(fpr, tpr, alpha=0.2)
-            ax.set_xlabel('False Positive Rate', fontsize=12)
-            ax.set_ylabel('True Positive Rate', fontsize=12)
-            ax.set_title('Receiver Operating Characteristic (ROC) Curve', fontsize=14)
-            ax.legend(loc='lower right')
-            ax.grid(True, alpha=0.3)
-            
-            st.pyplot(fig)
+        input_df = pd.DataFrame([input_data])
+        input_df = input_df[st.session_state['feature_names']]  # Ensure correct order
         
-        with tab2:
-            st.subheader("Confusion Matrix")
-            
-            # Plot confusion matrix
-            cm = st.session_state['cm']
-            fig, ax = plt.subplots(figsize=(7, 5))
-            sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', ax=ax,
-                       xticklabels=['Stay (0)', 'Churn (1)'],
-                       yticklabels=['Stay (0)', 'Churn (1)'])
-            ax.set_xlabel('Predicted', fontsize=12)
-            ax.set_ylabel('Actual', fontsize=12)
-            ax.set_title('Confusion Matrix', fontsize=14)
-            
-            st.pyplot(fig)
-            
-            # Metrics from confusion matrix
-            tn, fp, fn, tp = cm.ravel()
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                st.metric("True Positives", tp)
-            with col2:
-                st.metric("False Positives", fp)
-            with col3:
-                st.metric("False Negatives", fn)
-            with col4:
-                st.metric("True Negatives", tn)
+        # Scale features
+        num_cols = ['CreditScore', 'Age', 'Tenure', 'Balance', 'NumOfProducts', 
+                   'EstimatedSalary', 'BalanceSalaryRatio']
+        num_cols = [col for col in num_cols if col in input_df.columns]
         
-        with tab3:
-            st.subheader("Classification Report")
-            
-            report = st.session_state['report']
-            report_df = pd.DataFrame(report).transpose()
-            
-            # Display as a styled table
-            st.dataframe(report_df.style.format("{:.3f}"), use_container_width=True)
-            
-            # Feature importance
-            st.subheader("Feature Importance (Coefficients)")
-            coef_df = pd.DataFrame({
-                'Feature': st.session_state['feature_names'],
-                'Coefficient': st.session_state['model'].coef_[0]
-            }).sort_values(by='Coefficient', key=abs, ascending=False)
-            
-            st.dataframe(coef_df, use_container_width=True)
-
-# Page 4: About
+        input_scaled = input_df.copy()
+        input_scaled[num_cols] = st.session_state['scaler'].transform(input_df[num_cols])
+        
+        # Make prediction
+        model = st.session_state['model']
+        prob = model.predict_proba(input_scaled)[0][1]
+        prediction = model.predict(input_scaled)[0]
+        
+        # Display results
+        st.subheader("Prediction Results")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Churn Probability", f"{prob:.1%}")
+        
+        with col2:
+            if prediction == 1:
+                st.error("🚨 **WILL CHURN**")
+                st.write("High risk of leaving the bank")
+            else:
+                st.success("✅ **WILL STAY**")
+                st.write("Low risk of leaving the bank")
+        
+        # Progress bar
+        st.progress(float(prob), text=f"Risk Level: {prob:.1%}")
+        
 else:
-    st.markdown('<h2 class="sub-header">📋 About This Project</h2>', unsafe_allow_html=True)
-    
-    st.markdown("""
-    ### 🎯 Project Overview
-    This application predicts customer churn for a bank using **Logistic Regression**. 
-    Churn prediction helps banks identify customers likely to leave so they can take proactive retention measures.
-    
-    ### 📊 Model Details
-    - **Algorithm**: Logistic Regression
-    - **Features Used**: Credit Score, Age, Tenure, Balance, Number of Products, etc.
-    - **Target Variable**: Exited (1 = Churned, 0 = Stayed)
-    - **Evaluation Metric**: ROC-AUC Score
-    
-    ### 🔧 Technical Implementation
-    - **Data Preprocessing**: Standard Scaling, One-Hot Encoding
-    - **Model Training**: Scikit-learn Logistic Regression
-    - **Web Framework**: Streamlit
-    - **Visualization**: Matplotlib, Seaborn
-    
-    ### 📁 Dataset Structure
-    The model expects data with these key columns:
-    - `CreditScore`, `Age`, `Balance`, `EstimatedSalary`
-    - `HasCrCard`, `IsActiveMember` (as 0/1)
-    - `AgeGroup` (categorical, one-hot encoded)
-    - `Exited` (target variable)
-    
-    ### 🚀 How to Use
-    1. Go to **Model Training** page
-    2. Upload your dataset or use sample structure
-    3. Train the model
-    4. Make predictions on new data
-    5. Evaluate model performance
-    
-    ### 👨‍💻 Developer
-    Created as a portfolio project showcasing machine learning deployment skills.
-    """)
-    
-    # Add download link for sample data structure
-    st.markdown("---")
-    st.subheader("Sample Data Structure")
-    
-    # Create sample data
-    sample_data = {
-        'CreditScore': [650, 720, 580],
-        'Age': [40, 35, 50],
-        'Balance': [50000, 75000, 25000],
-        'EstimatedSalary': [60000, 80000, 40000],
-        'Exited': [0, 1, 0]
-    }
-    sample_df = pd.DataFrame(sample_data)
-    st.dataframe(sample_df, use_container_width=True)
+    st.warning("Please train the model first using the button above.")
+
+# About section
+st.markdown("---")
+st.header("📋 About This Project")
+
+st.markdown("""
+### Project Details
+This application uses **Logistic Regression** to predict bank customer churn based on:
+- **Credit Score, Age, Balance, Salary**
+- **Account Tenure and Activity**
+- **Product Usage Patterns**
+
+### How It Works
+1. **Data Loading**: Loads from `Churn_Modelling.xlsx` (or generates synthetic data)
+2. **Preprocessing**: Scales features and encodes categorical variables
+3. **Model Training**: Trains Logistic Regression with your data
+4. **Predictions**: Interactive interface for new customer predictions
+
+### Deployment
+- **Framework**: Streamlit
+- **Hosting**: Streamlit Cloud
+- **Repository**: GitHub with version control
+
+*Note: This is a portfolio project demonstrating end-to-end ML deployment.*
+""")
+
+# Footer
+st.markdown("---")
+st.caption("👨‍💻 Bank Churn Prediction Analytics | Built with Streamlit")
