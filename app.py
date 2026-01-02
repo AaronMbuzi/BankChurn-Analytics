@@ -331,6 +331,13 @@ This application uses **Logistic Regression** to predict bank customer churn bas
 - **Hosting**: Streamlit Cloud
 - **Repository**: GitHub with version control
 
+### Deployment
+This project is a complete bank customer churn prediction system built with Logistic Regression and deployed as an interactive web application. The app begins by loading real customer data and preparing it for analysis through scaling and encoding techniques to ensure the model works effectively with the different types of information.
+
+The machine learning component trains a Logistic Regression model that shows strong performance in identifying which customers are likely to leave. The model demonstrates excellent predictive capability through its ROC-AUC [ROC (Receiver Operating Characteristic) and AUC (Area Under Curve) is basically how good it is at carrying out the prediction] score, meaning it's very good at distinguishing between customers who will stay versus those who will leave, while analysis reveals that financial patterns and customer age are the most influential factors in predicting churn.
+
+Users can then interactively test the model through a simple form interface where they enter customer details like credit score and account information. The system instantly calculates churn probability and presents clear, color-coded risk assessments that allow business users to quickly understand which customers need attention, with visual indicators showing the likelihood of churn for each case.
+
 *Note: This is a portfolio project demonstrating end-to-end ML deployment.*
 """)
 
