@@ -343,4 +343,5 @@ Users can then interactively test the model through a simple form interface wher
 
 # Footer
 st.markdown("---")
-st.caption("👨‍💻 Bank Churn Prediction Analytics | Built with Streamlit")
+
+st.caption("👨‍💻 Bank Churn Prediction Analytics | Built with Streamlit | By Aaron Mbuzi")
